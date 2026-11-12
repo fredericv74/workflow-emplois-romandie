@@ -7,7 +7,6 @@ import re
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
-import httpx
 from pydantic import BaseModel
 
 SEARCH_URL = "https://www.jobup.ch/fr/emplois/"
@@ -87,7 +86,7 @@ def _parse_posting(job: dict[str, Any], region_label: str, term: str) -> JobOffe
 
 
 async def fetch_search(
-    client: httpx.AsyncClient, term: str, region_label: str, region_code: int
+    client: "httpx.AsyncClient", term: str, region_label: str, region_code: int
 ) -> list[JobOffer]:
     response = await client.get(
         SEARCH_URL,
@@ -104,6 +103,8 @@ async def fetch_search(
 
 
 async def collect_offers(max_age_days: int = 1) -> list[JobOffer]:
+    import httpx
+
     cutoff = datetime.now(timezone.utc) - timedelta(days=max_age_days)
     seen: dict[str, JobOffer] = {}
     async with httpx.AsyncClient(timeout=30, follow_redirects=True) as client:
