@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 from datetime import datetime, timezone
+from typing import Any
 
 import mistralai.workflows as workflows
 from pydantic import BaseModel
@@ -39,10 +40,15 @@ async def collect_offers_activity(max_age_days: int) -> list[JobOffer]:
 
 @workflows.activity(name="send-report-email")
 async def send_report_email_activity(
-    subject: str,
-    body_html: str,
+    offers: list[JobOffer],
     recipient: str,
+    dry_run: bool,
 ) -> str:
+    now = datetime.now(timezone.utc)
+    subject = build_subject(offers, now)
+    if dry_run:
+        return subject
+    body_html = build_html(offers, now)
     import httpx
 
     api_key = os.environ.get("RESEND_API_KEY") or os.environ["resend_api_key"]
@@ -58,7 +64,7 @@ async def send_report_email_activity(
             },
         )
     response.raise_for_status()
-    return response.text
+    return subject
 
 
 @workflows.workflow.define(
@@ -73,18 +79,13 @@ class RapportEmploisRomandieWorkflow:
     @workflows.workflow.entrypoint
     async def run(self, input: ReportInput) -> ReportOutput:
         offers = await collect_offers_activity(input.max_age_days)
-        now = datetime.now(timezone.utc)
-        subject = build_subject(offers, now)
-        emailed = False
-        if not input.dry_run:
-            await send_report_email_activity(
-                subject=subject,
-                body_html=build_html(offers, now),
-                recipient=input.recipient,
-            )
-            emailed = True
+        subject = await send_report_email_activity(
+            offers=offers,
+            recipient=input.recipient,
+            dry_run=input.dry_run,
+        )
         return ReportOutput(
             offers_count=len(offers),
             subject=subject,
-            emailed=emailed,
+            emailed=not input.dry_run,
         )
