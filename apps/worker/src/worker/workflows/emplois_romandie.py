@@ -21,12 +21,15 @@ from worker.workflows.jobs import (
     collect_offers,
 )
 
-outlook_connector = connector("outlook", run_as="deployment")
+resend_connector = connector("resend_6115", run_as="deployment")
+
+SENDER = "Rapport Emplois <onboarding@resend.dev>"
+DEFAULT_RECIPIENT = "freddoduleman@gmail.com"
 
 
 class ReportInput(BaseModel):
     max_age_days: int = 1
-    recipient: str = "freddo74000@outlook.fr"
+    recipient: str = DEFAULT_RECIPIENT
     dry_run: bool = False
 
 
@@ -41,19 +44,20 @@ async def collect_offers_activity(max_age_days: int) -> list[JobOffer]:
     return await collect_offers(max_age_days=max_age_days)
 
 
-@workflows.activity(name="draft-report-email")
-async def draft_report_email_activity(
+@workflows.activity(name="send-report-email")
+async def send_report_email_activity(
     subject: str,
     body_html: str,
     recipient: str,
-    outlook: ToolCallClient = Depends(outlook_connector),
+    resend: ToolCallClient = Depends(resend_connector),
 ) -> str:
-    result: Any = await outlook.call_tool(
-        tool_name="draft_outlook_email",
+    result: Any = await resend.call_tool(
+        tool_name="send_email",
         arguments={
-            "message_subject": subject,
-            "message_to": recipient,
-            "message_body": body_html,
+            "from": SENDER,
+            "to": [recipient],
+            "subject": subject,
+            "html": body_html,
         },
     )
     return str(result)
@@ -64,10 +68,10 @@ async def draft_report_email_activity(
     workflow_display_name="Rapport emplois Romandie",
     workflow_description=(
         "Rapport quotidien des offres d'emploi dessinateur projeteur / projeteur "
-        "dans les cantons de Genève, Vaud et Valais, envoyé par e-mail Outlook."
+        "dans les cantons de Genève, Vaud et Valais, envoyé par e-mail via Resend."
     ),
 )
-@uses_connectors(outlook_connector)
+@uses_connectors(resend_connector)
 class RapportEmploisRomandieWorkflow:
     @workflows.workflow.entrypoint
     async def run(self, input: ReportInput) -> ReportOutput:
@@ -76,7 +80,7 @@ class RapportEmploisRomandieWorkflow:
         subject = build_subject(offers, now)
         emailed = False
         if not input.dry_run:
-            await draft_report_email_activity(
+            await send_report_email_activity(
                 subject=subject,
                 body_html=build_html(offers, now),
                 recipient=input.recipient,
