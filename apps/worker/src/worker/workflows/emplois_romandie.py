@@ -2,16 +2,10 @@
 
 from __future__ import annotations
 
+import os
 from datetime import datetime, timezone
-from typing import Any
 
 import mistralai.workflows as workflows
-from mistralai.workflows import Depends
-from mistralai.workflows.plugins.mistralai.connectors import (
-    ToolCallClient,
-    connector,
-    uses_connectors,
-)
 from pydantic import BaseModel
 
 from worker.workflows.jobs import (
@@ -21,10 +15,9 @@ from worker.workflows.jobs import (
     collect_offers,
 )
 
-resend_connector = connector("resend_6115", run_as="deployment")
-
 SENDER = "Rapport Emplois <onboarding@resend.dev>"
 DEFAULT_RECIPIENT = "freddoduleman@gmail.com"
+RESEND_API_URL = "https://api.resend.com/emails"
 
 
 class ReportInput(BaseModel):
@@ -49,18 +42,23 @@ async def send_report_email_activity(
     subject: str,
     body_html: str,
     recipient: str,
-    resend: ToolCallClient = Depends(resend_connector),
 ) -> str:
-    result: Any = await resend.call_tool(
-        tool_name="send_email",
-        arguments={
-            "from": SENDER,
-            "to": [recipient],
-            "subject": subject,
-            "html": body_html,
-        },
-    )
-    return str(result)
+    import httpx
+
+    api_key = os.environ["RESEND_API_KEY"]
+    async with httpx.AsyncClient(timeout=30) as client:
+        response = await client.post(
+            RESEND_API_URL,
+            headers={"Authorization": f"Bearer {api_key}"},
+            json={
+                "from": SENDER,
+                "to": [recipient],
+                "subject": subject,
+                "html": body_html,
+            },
+        )
+    response.raise_for_status()
+    return response.text
 
 
 @workflows.workflow.define(
@@ -71,7 +69,6 @@ async def send_report_email_activity(
         "dans les cantons de Genève, Vaud et Valais, envoyé par e-mail via Resend."
     ),
 )
-@uses_connectors(resend_connector)
 class RapportEmploisRomandieWorkflow:
     @workflows.workflow.entrypoint
     async def run(self, input: ReportInput) -> ReportOutput:
