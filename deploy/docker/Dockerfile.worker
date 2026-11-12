@@ -1,0 +1,14 @@
+# syntax=docker/dockerfile:1
+FROM python:3.12-slim
+
+WORKDIR /app
+
+RUN pip install --no-cache-dir uv
+
+COPY pyproject.toml uv.lock ./
+RUN uv sync --frozen --no-dev --no-editable
+
+COPY apps/worker/src /app/src
+ENV PYTHONPATH=/app/src
+
+CMD ["uv", "run", "--no-sync", "python", "-m", "worker.entrypoints.worker"]
