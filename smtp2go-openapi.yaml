@@ -1,0 +1,71 @@
+openapi: 3.1.0
+info:
+  title: SMTP2GO Email Send API
+  version: "1.0.0"
+  description: Minimal SMTP2GO v3 API for sending transactional email.
+servers:
+  - url: https://api.smtp2go.com/v3
+paths:
+  /email/send:
+    post:
+      operationId: email_send
+      summary: Send an email
+      description: Send a transactional email via SMTP2GO.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - sender
+                - to
+                - subject
+              properties:
+                sender:
+                  type: string
+                  description: "From address in the format 'Name <email@example.com>'. Must be a verified sender."
+                to:
+                  type: array
+                  items:
+                    type: string
+                  description: Recipient email addresses.
+                subject:
+                  type: string
+                text_body:
+                  type: string
+                  description: Plain text body. Required if html_body is absent.
+                html_body:
+                  type: string
+                  description: HTML body.
+                cc:
+                  type: array
+                  items:
+                    type: string
+                bcc:
+                  type: array
+                  items:
+                    type: string
+                reply_to:
+                  type: string
+      responses:
+        "200":
+          description: Send result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  request_id:
+                    type: string
+                  data:
+                    type: object
+                    properties:
+                      message_id:
+                        type: string
+                      email_id:
+                        type: string
+        "401":
+          description: Unauthorized (invalid API key)
+        "422":
+          description: Validation error
