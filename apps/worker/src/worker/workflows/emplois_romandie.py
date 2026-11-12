@@ -45,7 +45,7 @@ async def send_report_email_activity(
 ) -> str:
     import httpx
 
-    api_key = os.environ["RESEND_API_KEY"]
+    api_key = os.environ.get("RESEND_API_KEY") or os.environ["resend_api_key"]
     async with httpx.AsyncClient(timeout=30) as client:
         response = await client.post(
             RESEND_API_URL,
