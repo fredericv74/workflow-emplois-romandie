@@ -1,0 +1,56 @@
+openapi: 3.1.0
+info:
+  title: Resend Email Send API
+  version: "1.0.0"
+  description: Minimal Resend API for sending transactional email.
+servers:
+  - url: https://api.resend.com
+paths:
+  /emails:
+    post:
+      operationId: send_email
+      summary: Send an email
+      description: Send a transactional email via Resend.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - from
+                - to
+                - subject
+              properties:
+                from:
+                  type: string
+                  description: "Sender in the format 'Name <email@domain>'."
+                to:
+                  type: array
+                  items:
+                    type: string
+                  description: Recipient email addresses.
+                subject:
+                  type: string
+                html:
+                  type: string
+                  description: HTML body of the email.
+                text:
+                  type: string
+                  description: Plain text body.
+                reply_to:
+                  type: string
+      responses:
+        "200":
+          description: Send result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+        "401":
+          description: Unauthorized (invalid API key)
+        "422":
+          description: Validation error
